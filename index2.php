@@ -196,8 +196,8 @@
       #add option for ch
       curl_setopt($ch, CURLOPT_HEADER, false);
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-      curl_setopt($ch, CURLOPT_PROXY, '93.170.123.77:1080');
-      curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS4);
+      //curl_setopt($ch, CURLOPT_PROXY, '93.170.123.77:1080');
+      //curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS4);
       curl_setopt($ch, CURLOPT_TIMEOUT, 100);
       curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
 
@@ -247,6 +247,7 @@
   //прогоняем продукт_лист
   foreach ($urls as $chunk) {  
     $product = multicurl($chunk);
+    //$product = multicurl($urls);
     foreach ($product as $p) {
       $prod = pq($p);
       $name = $prod->find('.name');
@@ -256,7 +257,7 @@
         echo pq($n);
         echo br;
         echo $i;
-      }
+      }      
     }
   }
   //php curl class библиотека php
@@ -365,6 +366,9 @@
   9) можно это запихнуть в функцию и возвращать тот же продукт $product = multicurl($urls);
    9.1) $htmls[] = $html;
    9.2) return $htmls;
+
+   header('Content-type: text/html; charset=UTF-8');
+   header('Content-Type: application/json');
   ======================================================================= */
 
   

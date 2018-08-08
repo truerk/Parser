@@ -1,64 +1,159 @@
-<?php 
-  require_once('phpQuery/phpQuery/phpQuery.php');
-  
- /* $context = stream_context_create(
-    array(
-        "https" => array(
-            "header" => "User-Agent: Mozilla/5.0 (Windows NT 7.0; WOW32) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
-        )
-    )
-);*/
+<?php
 
-  //file_get_contents("https://google.com", false, $context);
+/**
+ * @author Truerk
+ * Class Parser
+ */
+class Parser
+{
+    /**
+     * @param $urls
+     * @param bool $flowMode
+     * @param int $flow
+     * @return array|void
+     */
+    function multiCurl($urls, $flowMode = false, $flow = 1)
+    {
+        if ($flowMode) {
+            return $this->multiCurlFlow($urls, $flow);
+        }
 
-  //$doc = phpQuery::newDocument('https://www.dns-shop.ru');
+        #Создаем mh
+        $mh = curl_multi_init();
 
-  //$html = file_get_contents('https://www.dns-shop.ru');
-  //echo "<a href=".'parser.php'.">Первый парсер</a>";
-  define(br, '<br>');
-  //echo $doc->find('title')->html();
-  /*$html = file_get_contents('https://pogoda.yandex.ru');
+        #Создаем массив для ch
+        $handles = [];
 
-  $doc = phpQuery::newDocument($html);//подключение документа
+        foreach ($urls as $url){
+            #Создаем ch
+            $ch = curl_init($url);
 
-  //$title = pq('title')->html();//содержимое тега title
-  $title = $doc->find('title')->html();
-  
-  //$temperature = pq('.fact__feels-like > .term__label')->text();
-  echo $temperature.br;
-  echo $title;
-  $temperature = pq('.fact__feels-like > .term__label')->attr('class');
-  echo $temperature.br;
+            #Настраиваем ch
+            curl_setopt($ch, CURLOPT_HEADER, false);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
-  $forecast = $doc->find('.forecast-briefly__days')->children('.forecast-briefly__day');
-  //echo $forecast;
-  pq('.dsfds meta[itempro=price]')
-  //для обработки в foreach обязательно для ключа pq()
-  foreach ($forecast as $day) {
-    $day = pq($day);
-    $day->find('.time')->remove();    
-    $count++;
-    $day->append("<p>$count</p>");
-    echo $day;
-    if ($count == 2) {
-      return false;
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+            /*curl_setopt($ch, CURLOPT_PROXY, '93.170.123.77:1080');
+            curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS4);*/
+
+            curl_setopt($ch, CURLOPT_TIMEOUT, 100);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+
+            #Добавляем ch в mh
+            curl_multi_add_handle($mh, $ch);
+
+            #Добавляем ch в массив
+            $handles[$url] = $ch;
+        }
+
+        do {
+            #run mh
+            $mrc = curl_multi_exec($mh, $active);
+        } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+        #check result
+        while ($active && $mrc == CURLM_OK) {
+            if (curl_multi_select($mh) == -1) {
+                usleep(100);
+            }
+
+            do{
+                $mrc = curl_multi_exec($mh, $active);
+            }while ($mrc == CURLM_CALL_MULTI_PERFORM);
+        }
+
+        foreach ($handles as $channel) {
+            //получаем exec(ch)
+            $html = curl_multi_getcontent($channel);
+
+            $htmls[] = $html;
+
+            //удаляем хандлы ch
+            curl_multi_remove_handle($mh, $channel);
+        }
+
+        curl_multi_close($mh);
+
+        return $htmls;
     }
-  }
-  $price = pq('span.regular-price meta[itemprop=price]')->attr('content');
-  */
+
+    /**
+     * @param $urls
+     * @param $flow
+     * @return array
+     */
+    private function multiCurlFlow($urls, $flow)
+    {
+        #Количество потоков
+        $urls = array_chunk($urls, $flow);
+
+        #Прогоняем потоки
+        foreach ($urls as $chunk) {
+            #Создаем mh
+            $mh = curl_multi_init();
+
+            #Создаем массив для ch
+            $handles = [];
+
+            foreach ($chunk as $url){
+                #Создаем ch
+                $ch = curl_init($url);
+
+                #Настраиваем ch
+                curl_setopt($ch, CURLOPT_HEADER, false);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+                /*curl_setopt($ch, CURLOPT_PROXY, '93.170.123.77:1080');
+                curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS4);*/
+
+                curl_setopt($ch, CURLOPT_TIMEOUT, 100);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+
+                #Добавляем ch в mh
+                curl_multi_add_handle($mh, $ch);
+
+                #Добавляем ch в массив
+                $handles[$url] = $ch;
+            }
+
+            do {
+                #run mh
+                $mrc = curl_multi_exec($mh, $active);
+            } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+            #check result
+            while ($active && $mrc == CURLM_OK) {
+                if (curl_multi_select($mh) == -1) {
+                    usleep(100);
+                }
+
+                do{
+                    $mrc = curl_multi_exec($mh, $active);
+                }while ($mrc == CURLM_CALL_MULTI_PERFORM);
+            }
+
+            foreach ($handles as $channel) {
+                //получаем exec(ch)
+                $html = curl_multi_getcontent($channel);
+
+                $htmls_flow[] = $html;
+
+                //удаляем хандлы ch
+                curl_multi_remove_handle($mh, $channel);
+            }
+
+            curl_multi_close($mh);
 
 
-  $html = file_get_contents("http://www.stolmeb.ru/kresla-i-stulya/dlya-rukovoditelej.html");
+        }
+        return $htmls_flow;
+    }
+}
 
-  $doc = phpQuery::newDocument($html);
-
-  echo $doc->find('.block_product')->html();
-
-
-
-
-  phpQuery::unloadDocuments($doc);//закрытие всех процессов
-
-  // $doc = phpQuery::newDocument($html);
-  // phpQuery::unloadDocuments($doc);
-?>
